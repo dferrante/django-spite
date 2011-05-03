@@ -2,10 +2,10 @@ from django.conf import settings
 from django.contrib.auth import logout
 from django.http import *
 
-import time, random
+import time, random, bisect
 
 
-BAD_STATUS_CODES = getattr(settings, 'SPITE_BAD_STATUS_CODES', [400, 403, 404, 410, 500, 501, 503])
+BAD_STATUS_CODES = [400, 403, 404, 410, 500, 501, 503] #getattr(settings, 'SPITE_BAD_STATUS_CODES', )
 SLOW_RANGE = (1,5)
 
 BAD_STATUS_CHANCE = 10
@@ -33,20 +33,24 @@ class WeightedRandomGenerator(object):
     def __call__(self):
         return self.next()
 
+lets_get_em_wrg = WeightedRandomGenerator([TOTAL_CHANCE-OUT_OF, OUT_OF])
+bad_status_wrg = WeightedRandomGenerator([BAD_STATUS_CHANCE-OUT_OF, BAD_STATUS_CHANCE])
+tarpit_wrg = WeightedRandomGenerator([SLOW_CHANCE-OUT_OF, SLOW_CHANCE])
+break_post_wrg = WeightedRandomGenerator([BREAK_POST_CHANCE-OUT_OF, BREAK_POST_CHANCE])
+logout_wrg = WeightedRandomGenerator([LOG_OUT_CHANCE-OUT_OF, LOG_OUT_CHANCE])
 
 class Spite:
-    def __init__(self):
-        self.lets_screw_with_them = False
-        if self.lets_screw_with_them:
-            self.we_tarpit_them = False
-            self.stop_error_time = False
-            self.mess_with_the_post = False
-            self.log_them_out = False
-
     def process_request(self, request):
+        self.fuck_this_guy = lets_get_em_wrg()
+
         # look who lucked out
-        if not self.lets_screw_with_them:
+        if not self.fuck_this_guy:
             return None
+
+        self.we_tarpit_them = tarpit_wrg()
+        self.stop_error_time = bad_status_wrg()
+        self.mess_with_the_post = break_post_wrg()
+        self.log_them_out = logout_wrg()
 
         # first we slow them down
         if self.we_tarpit_them:

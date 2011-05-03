@@ -12,7 +12,8 @@ BAD_STATUS_CHANCE = 10
 SLOW_CHANCE = 40
 BREAK_POST_CHANCE = 10
 LOG_OUT_CHANCE = 1
-TOTAL_CHANCE = 50
+BLANK_PAGE_CHANCE = 10
+TOTAL_CHANCE = 10
 OUT_OF = 100
 
 # taken from this dude
@@ -33,11 +34,12 @@ class WeightedRandomGenerator(object):
     def __call__(self):
         return self.next()
 
-lets_get_em_wrg = WeightedRandomGenerator([TOTAL_CHANCE-OUT_OF, OUT_OF])
-bad_status_wrg = WeightedRandomGenerator([BAD_STATUS_CHANCE-OUT_OF, BAD_STATUS_CHANCE])
-tarpit_wrg = WeightedRandomGenerator([SLOW_CHANCE-OUT_OF, SLOW_CHANCE])
-break_post_wrg = WeightedRandomGenerator([BREAK_POST_CHANCE-OUT_OF, BREAK_POST_CHANCE])
-logout_wrg = WeightedRandomGenerator([LOG_OUT_CHANCE-OUT_OF, LOG_OUT_CHANCE])
+lets_get_em_wrg = WeightedRandomGenerator([OUT_OF-TOTAL_CHANCE, OUT_OF])
+blank_page_wrg = WeightedRandomGenerator([OUT_OF-BLANK_PAGE_CHANCE, BLANK_PAGE_CHANCE])
+bad_status_wrg = WeightedRandomGenerator([OUT_OF-BAD_STATUS_CHANCE, BAD_STATUS_CHANCE])
+tarpit_wrg = WeightedRandomGenerator([OUT_OF-SLOW_CHANCE, SLOW_CHANCE])
+break_post_wrg = WeightedRandomGenerator([OUT_OF-BREAK_POST_CHANCE, BREAK_POST_CHANCE])
+logout_wrg = WeightedRandomGenerator([OUT_OF-LOG_OUT_CHANCE, LOG_OUT_CHANCE])
 
 class Spite:
     def process_request(self, request):
@@ -48,19 +50,26 @@ class Spite:
             return None
 
         self.we_tarpit_them = tarpit_wrg()
+        self.snow_job = blank_page_wrg()
         self.stop_error_time = bad_status_wrg()
         self.mess_with_the_post = break_post_wrg()
         self.log_them_out = logout_wrg()
 
         # first we slow them down
         if self.we_tarpit_them:
-            time.sleep(random.randint(**SLOW_RANGE))
+            time.sleep(random.randint(*SLOW_RANGE))
+
+        # uh oh, blank page!
+        if self.snow_job:
+            return HttpResponse('')
 
         # then maybe we return an error.  whoopsie!  we're working on the site bugs, we promise!
         if self.stop_error_time:
             return HttpResponse('', status=random.choice(BAD_STATUS_CODES))
 
         # to really break their spirit, we pop a random item off a POST
+        # WARNING: this may break your stuff if you aren't using validating your forms
+        # you *are* validating your forms, right?
         if self.mess_with_the_post:
             if request.POST:
                 request.POST._mutable = True
@@ -79,10 +88,3 @@ class Spite:
                 logout(request)
 
         return None
-
-    def process_response(self, request, response):
-        # lets break some random html
-
-        # who needs css styles?
-
-        return response
